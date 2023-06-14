@@ -1,0 +1,41 @@
+--distance moyenne hebdo
+select min(distance_moyenne_hebdo_2022) as valeur_quartile,
+quartile
+
+from
+
+(select NTILE(4) OVER(ORDER BY distance_moyenne_hebdo_2022 asc) AS quartile,
+distance_moyenne_hebdo_2022
+
+from
+
+(select
+round(avg(distance_moyenne_hebdo),8) as distance_moyenne_hebdo_2022,
+utilisateur
+
+from
+
+(select
+extract(week from a.date_timezoned) as semaine,
+sum(a.distance)/1000 as distance_moyenne_hebdo,
+a.uid as utilisateur
+
+from analytics.activities_last_year a
+
+where 0=0
+and a.type = 'Running'
+and a.date_timezoned >= '2022-01-01'
+and a.date_timezoned <= '2022-12-31'
+and a.deleted = 'False'
+and a.is_valid = 'True'
+
+group by a.uid, semaine
+order by distance_moyenne_hebdo asc, semaine asc, user asc)
+
+group by utilisateur
+order by distance_moyenne_hebdo_2022 asc)
+
+order by quartile asc, distance_moyenne_hebdo_2022 asc)
+
+group by quartile
+order by quartile asc
