@@ -1,0 +1,58 @@
+WITH actives AS (
+SELECT 
+level_0_id,
+month+'-01' as month,
+COUNT(DISTINCT uid) as actives
+
+FROM analytics.uh_activities
+WHERE 
+level_0_id != '' and 
+added_during_month = 1 and 
+is_valid is true and 
+deleted is false and
+date_timezoned >= DATE_TRUNC('month', dateadd(month,-3,GETDATE()))
+
+
+GROUP BY 
+level_0_id,
+month 
+),
+registered AS (
+SELECT 
+level_0_id,
+month+'-01' as month,
+SUM(registered) as registered
+
+FROM analytics.uh_registered
+WHERE month+'-01' >= DATE_TRUNC('month', dateadd(month,-3,GETDATE()))
+GROUP BY 
+level_0_id,
+month
+ORDER BY 
+level_0_id,
+month
+)
+
+SELECT
+'registered' as "dimensionid",
+p.level_0_id as id,
+r.month as date,
+r.registered as value,
+'Company' as model
+
+FROM analytics.planhat_account_info p
+LEFT JOIN registered r ON p.level_0_id = r.level_0_id
+
+
+UNION ALL
+
+SELECT
+'actives' as "dimensionid",
+p.level_0_id as id,
+a.month as date,
+a.actives as value,
+'Company' as model
+
+FROM analytics.planhat_account_info p
+LEFT JOIN actives a ON p.level_0_id = a.level_0_id
+WHERE month is not null
