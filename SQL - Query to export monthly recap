@@ -1,0 +1,44 @@
+WITH filtered_activities AS (
+    SELECT 
+    DATEADD(HOUR,CAST(timezone AS int) ,date) as date_timezoned,
+    * 
+    FROM analytics.activities_last_year 
+    WHERE date >= '2023-05-01' and date < '2023-06-01' and lower(type) IN ('running','treadmill','stretching','hiking','runwheelchair','walkwheelchair','workout','wheelchair','athletics','walking') and is_valid is true and deleted is false
+    ),
+filtered_users AS (
+    SELECT * 
+    FROM source.usersclients 
+      where client_id ='client_id1' and is_deleted is false
+  ),
+compile_data AS (
+
+SELECT
+su."_id" as "user_id", su.email, a.*
+
+FROM filtered_activities a
+INNER JOIN filtered_users u ON a."uid" = u."user_id" AND a.date >= u.created_at
+LEFT JOIN source.users su ON a."uid" = su."_id"
+
+--WHERE a.type !='Walking'
+)
+
+SELECT 
+user_id,
+email,
+SUM(points) as points,
+
+SUM(CASE WHEN lower(type) IN ('running','walking') then distance end)*0.000621371 as running_walking_miles,
+SUM(CASE WHEN lower(type) IN ('running') then duration 
+when lower(type) IN ('walking') and steps > 0 and distance > 0 and duration > 0 and duration/nullif((-5.7600095586840325 + -0.10589056582190977 * distance + 0.6123571240013793 * steps),0) >= 0.85 and duration/nullif((-5.7600095586840325 + -0.10589056582190977 * distance + 0.6123571240013793 * steps),0) <= 1.15 then duration
+when lower(type) IN ('walking') and steps > 0 and distance > 0 and duration > 0 and duration/nullif((-5.7600095586840325 + -0.10589056582190977 * distance + 0.6123571240013793 * steps),0) < 0.85 and duration/nullif((-5.7600095586840325 + -0.10589056582190977 * distance + 0.6123571240013793 * steps),0) >= 0 then round(-5.7600095586840325 + -0.10589056582190977 * distance + 0.6123571240013793 * steps,0)
+when lower(type) IN ('walking') and steps > 0 and distance > 0 and duration > 0 and duration/nullif((-5.7600095586840325 + -0.10589056582190977 * distance + 0.6123571240013793 * steps),0) > 1.15 then round(-5.7600095586840325 + -0.10589056582190977 * distance + 0.6123571240013793 * steps,0)
+when lower(type) IN ('walking') AND (
+        (duration IS NULL OR duration <= 0) OR
+        (steps IS NULL OR steps <= 0) OR
+        (distance IS NULL OR distance <= 0)
+    ) THEN duration
+end)/3600 as running_walking_hours,
+COUNT(CASE WHEN lower(type) IN ('running','walking') then "_id" end) as running_walking_activities
+
+FROM compile_data
+GROUP BY user_id, email
