@@ -1,0 +1,111 @@
+drop table if exists table_test_Malo_reglin
+
+;
+
+CREATE TEMPORARY TABLE table_test_Malo_reglin AS
+
+WITH RECURSIVE months(MonthNumber) AS
+(
+    SELECT 0
+    UNION ALL
+    SELECT MonthNumber+1 
+    FROM months
+    WHERE MonthNumber < 13
+),
+
+month_list AS 
+(
+    SELECT 
+    DATEADD(MONTH,-monthnumber,GETDATE()) AS precise_date,
+    CAST(LEFT(DATEADD(MONTH,-monthnumber,GETDATE()),7) + '-01' AS date) AS first_of_month,
+    LAST_DAY(first_of_month) AS end_of_month,
+    LEFT(DATEADD(MONTH,-monthnumber,GETDATE()),7) AS month,
+    Cast(DATEPART(year,end_of_month) as text) +'-Q'+CAST(EXTRACT(QUARTER FROM end_of_month) as text) as quarter,
+    RANK() OVER (PARTITION BY quarter ORDER BY end_of_month desc) AS month_rank
+    FROM months
+),
+
+user_months AS (
+    SELECT
+    uc."user_id",
+    uc."lowest_level_id",
+    uc."lowest_level_name",
+    uc."level_0_id",
+    uc."level_0_name",
+    uc."level_1_id",
+    uc."level_1_name",
+    uc."level_2_id",
+    uc."level_2_name",
+    uc."level_3_id",
+    uc."level_3_name",
+    uc."created_at",
+    uc."deleted_at",
+    m.quarter,
+    m.month,
+    m.month_rank,
+    CASE WHEN created_at > first_of_month THEN created_at ELSE first_of_month END AS start_date,
+    CASE WHEN deleted_at < end_of_month THEN deleted_at ELSE end_of_month END AS end_date
+    FROM analytics.uh_user_groups uc
+    LEFT JOIN month_list m ON uc.deleted_at >= m.first_of_month AND uc.created_at <= m.end_of_month
+    WHERE uc."is_deleted" is true and uc.level_0_id != ''
+    UNION ALL
+    SELECT
+    uc."user_id",
+    uc."lowest_level_id",
+    uc."lowest_level_name",
+    uc."level_0_id",
+    uc."level_0_name",
+    uc."level_1_id",
+    uc."level_1_name",
+    uc."level_2_id",
+    uc."level_2_name",
+    uc."level_3_id",
+    uc."level_3_name",
+    uc."created_at",
+    uc."deleted_at",
+    m.quarter,
+    m.month,
+    m.month_rank,
+    CASE WHEN created_at > first_of_month THEN created_at ELSE first_of_month END AS start_date,
+    CASE WHEN deleted_at < end_of_month THEN deleted_at ELSE end_of_month END AS end_date
+    FROM analytics.uh_user_groups uc
+    LEFT JOIN month_list m ON uc.created_at <= m.end_of_month
+    WHERE uc."is_deleted" is false and uc.level_0_id != '' and rnk = 1
+)
+
+SELECT
+um."lowest_level_id",
+um."lowest_level_name",
+CASE WHEN um.level_1_id IN ('id1',
+                         'id2',
+                         'id3'
+                         )
+                         then um.level_1_id ELSE um.level_0_id END as level_0_id,
+CASE WHEN um.level_1_id IN ('id1',
+                         'id2',
+                         'id3'
+                         )
+    THEN um.level_1_name ELSE um.level_0_name END as level_0_name,
+um."level_1_id",
+um."level_1_name",
+um."level_2_id",
+um."level_2_name",
+um."level_3_id",
+um."level_3_name",
+um.start_date,
+um.end_date,
+um.quarter,
+um.month,
+Cast(DATEPART(year,a.date_timezoned) as text) +'-'+CAST(DATEPART(week,a.date_timezoned) as text) as week,
+a."uid" as user_id,
+CASE WHEN LEFT(a.date_timezoned,7) = LEFT(a.created_at,7) THEN 1 ELSE 0 END as added_during_month,
+a.*,
+case 
+when a.type != 'Walking' then a.duration
+when a.type = 'Walking' and a.steps > 0 and a.distance > 0 and a.duration > 0 and a.duration/nullif((-5.7600095586840325 + -0.10589056582190977 * distance + 0.6123571240013793 * steps),0) >= 0.85 and a.duration/nullif((-5.7600095586840325 + -0.10589056582190977 * distance + 0.6123571240013793 * steps),0) <= 1.15 then a.duration
+when a.type = 'Walking' and a.steps > 0 and a.distance > 0 and a.duration > 0 and a.duration/nullif((-5.7600095586840325 + -0.10589056582190977 * distance + 0.6123571240013793 * steps),0) < 0.85 and a.duration/nullif((-5.7600095586840325 + -0.10589056582190977 * distance + 0.6123571240013793 * steps),0) >= 0 then round(-5.7600095586840325 + -0.10589056582190977 * distance + 0.6123571240013793 * steps,0)
+when a.type = 'Walking' and a.steps > 0 and a.distance > 0 and a.duration > 0 and a.duration/nullif((-5.7600095586840325 + -0.10589056582190977 * distance + 0.6123571240013793 * steps),0) > 1.15 then round(-5.7600095586840325 + -0.10589056582190977 * distance + 0.6123571240013793 * steps,0)
+else a.duration end as duration_fixed_Malo
+FROM user_months um
+LEFT JOIN analytics.activities_last_year a ON a."uid"=um."user_id" AND a.date_timezoned >= um.start_date and a.date_timezoned < um.end_date
+ORDER BY um.created_at DESC
