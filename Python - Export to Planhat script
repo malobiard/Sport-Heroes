@@ -1,0 +1,31 @@
+pip install df2gspread
+import requests
+import pandas as pd
+import gspread
+from df2gspread import df2gspread as d2g
+from datetime import datetime
+import json
+
+
+upload_df = pd.read_csv("SQL export")
+upload_df = upload_df.rename(columns={'dimensionid':'dimensionId','id':'externalId'})
+upload_df["date"] = upload_df["date"] + 'T00:00:00.000Z'
+
+#------------ Upload cleaned data to Planhat
+
+
+
+url = "Planhat URL"
+
+headers = {
+    "Content-Type": "application/json",
+    "Authorization": "API"
+}
+
+#data = consolidate_df.to_dict('records')
+data = upload_df.to_dict('records')
+
+json_data = json.dumps(data)
+
+response = requests.post(url, headers=headers, json=data)
+print(response.text)
