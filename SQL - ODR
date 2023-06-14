@@ -1,0 +1,1845 @@
+## Nombre moyen de sorties running par runner et par mois VS 2021
+
+SELECT ROUND(CAST(COUNT(_id) as float)/CAST(COUNT(DISTINCT uid) as float),1) as nombre_runs_par_user, CAST(LEFT(a.date,7)+'-01' as date) as year_month
+from source.activities a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+
+where 0=0
+and a.type = 'Running'
+and a.is_valid = 'true'
+and a.deleted = 'false' 
+and a.date >= '2020-01-01'
+and a.date <'2023-01-01'
+group by year_month
+order by year_month ASC
+
+
+
+;
+
+--En différenciant semaine et week end
+select ROUND(cast(sum(nombre_runs_user) as float)/cast(count(distinct year_month) as float),1) as nombre_runs_moyen_par_mois,
+moment_semaine,
+year
+
+from
+
+(SELECT
+round(cast(SUM(runs) as float)/cast(count(distinct utilisateur) as float),2) as nombre_runs_user,
+year_month,
+moment_semaine,
+year
+
+FROM
+
+(SELECT COUNT(_id) as runs,
+LEFT(a.date,4) as year,
+(CASE 
+       WHEN extract(DAYOFWEEK from a.date) in ('6','0') THEN 'Week-End'
+       ELSE 'Semaine'
+END) as moment_semaine,
+CAST(LEFT(a.date,7)+'-01' as date) as year_month,
+a.uid as utilisateur
+
+from source.activities a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+
+where 0=0
+and a.type = 'Running'
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.duration > 0
+and a.distance > 0
+and a.date >= '2019-01-01'
+and a.date <'2023-01-01'
+GROUP BY utilisateur, year, year_month, moment_semaine
+order by utilisateur ASC, year ASC, year_month ASC, moment_semaine ASC)
+
+group by year, year_month, moment_semaine
+order by year ASC, year_month ASC, moment_semaine ASC)
+
+group by year, moment_semaine
+order by year ASC, moment_semaine ASC
+
+
+## Vitesse moyenne, durée des séances moyenne, km/run sur l'année VS 2021
+
+SELECT ROUND(SUM(duration/60)/COUNT(duration),5) as duree_moyenne_par_run_min,
+ROUND(SUM(duration/60)/SUM(distance/1000),5) as vitesse_moyenne_par_run,
+ROUND(SUM(distance/1000)/COUNT(_id),5) as distance_moyenne_par_run,
+LEFT(a.date,4) as year
+
+from source.activities a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+
+where 0=0
+and a.type = 'Running'
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.duration > 0
+and a.distance > 0
+and a.date >= '2019-01-01'
+and a.date <'2023-01-01'
+GROUP BY year
+order by year ASC
+
+
+## Vitesse moyenne, durée des séances moyenne, km/run, sorties/mois sur l'année VS 2021 en faisant le calcul pour chaque mois, puis la moyenne
+
+SELECT
+ROUND(AVG(nombre_runs_par_user),2) as runs_mois,
+year,
+ROUND(AVG(duree_moyenne_par_run_min),2) as duree_par_run_en_moyenne_par_mois_min,
+ROUND(AVG(vitesse_moyenne_par_run),2) as vitesse_en_moyenne_par_mois,
+ROUND(AVG(distance_moyenne_par_run),2) as km_par_run_en_moyenne_par_mois
+
+FROM
+
+(SELECT CAST(COUNT(_id) as float)/CAST(COUNT(DISTINCT uid) as float) as nombre_runs_par_user,
+SUM(duration/60)/COUNT(duration) as duree_moyenne_par_run_min,
+SUM(duration/60)/SUM(distance/1000) as vitesse_moyenne_par_run,
+SUM(distance/1000)/COUNT(_id) as distance_moyenne_par_run,
+LEFT(a.date,4) as year, CAST(LEFT(a.date,7)+'-01' as date) as year_month
+
+from source.activities a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+
+where 0=0
+and a.type = 'Running'
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.duration > 0
+and a.distance > 0
+and a.date >= '2019-01-01'
+and a.date <'2023-01-01'
+and a.distance <= 1000000
+GROUP BY year_month, year
+order by year_month ASC, year ASC)
+
+group by year
+order by year ASC
+
+
+## Nombre d'utilisateurs ayant pratiqué : Yoga, Velo d'intérieur, cyclisme, randonnée, natation et musculation sur l'année VS 2021, en total et en activités par user ayant fait au moins 1 activité de ce type
+
+SELECT COUNT(a._id)/COUNT(distinct a.uid) as nombre_activités_user, type, LEFT(a.date, 4) as year
+
+from source.activities a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+
+where 0=0
+and a.type in ('Yoga','Hiking','IndoorCycling','Cycling','Swimming','Workout')
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2021-01-01'
+and a.date <'2023-01-01'
+group by year, type
+order by year ASC, type ASC
+
+;
+
+SELECT COUNT(distinct a.uid) as nombre_activités, type, LEFT(a.date, 4) as year
+
+from source.activities a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+
+where 0=0
+and a.type in ('Yoga','Hiking','IndoorCycling','Cycling','Swimming','Workout')
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2021-01-01'
+and a.date <'2023-01-01'
+group by year, type
+order by year ASC, type ASC
+
+
+## La répartition des distances de run : <5, entre 5 et 10, entre 10 et 15, entre 15 et 20 et >20 pour tous puis en séparant hommes et femmes
+
+SELECT CASE 
+       WHEN distance/1000>20 THEN 'Catégorie 5 : plus de 20km'
+       WHEN distance/1000>15 THEN 'Catégorie 4 : entre 15 et 20km'
+       WHEN distance/1000>10 THEN 'Catégorie 3 : entre 10 et 15km'
+       WHEN distance/1000>5 THEN 'Catégorie 2 : entre 5 et 10km'
+       ELSE 'Catégorie 1 : moins de 5km'
+END as type_run, COUNT(type_run) as nombre_runs
+
+
+from analytics.activities_last_year a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+
+where 0=0
+and a.type = 'Running'
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2022-01-01'
+and a.date < '2023-01-01'
+and a.distance > 0
+and a.duration > 0
+
+GROUP BY type_run
+order by type_run ASC
+
+;
+
+SELECT CASE 
+       WHEN distance/1000>20 THEN 'Catégorie 5 : plus de 20km'
+       WHEN distance/1000>15 THEN 'Catégorie 4 : entre 15 et 20km'
+       WHEN distance/1000>10 THEN 'Catégorie 3 : entre 10 et 15km'
+       WHEN distance/1000>5 THEN 'Catégorie 2 : entre 5 et 10km'
+       ELSE 'Catégorie 1 : moins de 5km'
+END as type_run, COUNT(type_run) as nombre_runs,
+us.gender as sexe
+
+
+from analytics.activities_last_year a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+INNER JOIN source.users us on a.uid = us._id
+
+where 0=0
+and a.type = 'Running'
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2022-01-01'
+and a.date < '2023-01-01'
+and a.distance > 0
+and a.duration > 0
+and us.gender is not Null
+and us.gender != 'DND'
+and us.gender in ('F','M')
+
+GROUP BY sexe, type_run
+order by sexe ASC, type_run ASC
+
+
+## Le volume horaire par semaine, d'abord pour tous les users puis en séparant hommes et femmes, puis en séparant par âge
+
+SELECT CASE 
+       WHEN duree_totale_user >5 THEN 'Catégorie 11 : plus de 5h par semaine'
+       WHEN duree_totale_user >4.5 THEN 'Catégorie 10 : entre 4h30 et 5h par semaine'
+       WHEN duree_totale_user >4 THEN 'Catégorie 9 : entre 4h et 4h30 par semaine'
+       WHEN duree_totale_user >3.5 THEN 'Catégorie 8 : entre 3h30 et 4h par semaine'
+       WHEN duree_totale_user >3 THEN 'Catégorie 7 : entre 3h et 3h30 par semaine'
+       WHEN duree_totale_user >2.5 THEN 'Catégorie 6 : entre 2h30 et 3h par semaine'
+       WHEN duree_totale_user >2 THEN 'Catégorie 5 : entre 2h et 2h30 par semaine'
+       WHEN duree_totale_user >1.5 THEN 'Catégorie 4 : entre 1h30 et 2h par semaine'
+       WHEN duree_totale_user >1 THEN 'Catégorie 3 : entre 1h et 1h30 par semaine'
+       WHEN duree_totale_user >0.5 THEN 'Catégorie 2 : entre 30min et 1h par semaine'
+       ELSE 'Catégorie 1 : moins de 30min par semaine'
+       END as type_runner,
+       COUNT(type_runner) as nombre_runners_par_categorie
+
+FROM
+
+(SELECT SUM(duree_totale)/COUNT(semaine) as duree_totale_user, utilisateur
+
+FROM
+
+(SELECT SUM(duration)/3600 as duree_totale, EXTRACT(week from a.date) as semaine, a.uid as utilisateur
+
+from analytics.activities_last_year a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+INNER JOIN source.users us on a.uid = us._id
+
+where 0=0
+and a.type = 'Running'
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2022-01-01'
+and a.date < '2023-01-01'
+and a.distance > 0
+and a.duration > 0
+and us.gender is not Null
+and us.gender != 'DND'
+and us.gender in ('F','M')
+
+GROUP BY utilisateur, semaine
+order by utilisateur ASC, semaine ASC)
+
+GROUP BY utilisateur
+ORDER BY utilisateur ASC)
+
+GROUP BY type_runner
+ORDER BY type_runner ASC
+
+;
+
+SELECT CASE 
+       WHEN duree_totale_user >5 THEN 'Catégorie 11 : plus de 5h par semaine'
+       WHEN duree_totale_user >4.5 THEN 'Catégorie 10 : entre 4h30 et 5h par semaine'
+       WHEN duree_totale_user >4 THEN 'Catégorie 9 : entre 4h et 4h30 par semaine'
+       WHEN duree_totale_user >3.5 THEN 'Catégorie 8 : entre 3h30 et 4h par semaine'
+       WHEN duree_totale_user >3 THEN 'Catégorie 7 : entre 3h et 3h30 par semaine'
+       WHEN duree_totale_user >2.5 THEN 'Catégorie 6 : entre 2h30 et 3h par semaine'
+       WHEN duree_totale_user >2 THEN 'Catégorie 5 : entre 2h et 2h30 par semaine'
+       WHEN duree_totale_user >1.5 THEN 'Catégorie 4 : entre 1h30 et 2h par semaine'
+       WHEN duree_totale_user >1 THEN 'Catégorie 3 : entre 1h et 1h30 par semaine'
+       WHEN duree_totale_user >0.5 THEN 'Catégorie 2 : entre 30min et 1h par semaine'
+       ELSE 'Catégorie 1 : moins de 30min par semaine'
+       END as type_runner,
+       COUNT(type_runner) as nombre_runners_par_categorie,
+       sexe1 as sexe
+
+FROM
+
+(SELECT SUM(duree_totale)/COUNT(semaine) as duree_totale_user, utilisateur, MIN(sexe) as sexe1
+
+FROM
+
+(SELECT SUM(duration)/3600 as duree_totale, EXTRACT(week from a.date) as semaine, us.gender as sexe, a.uid as utilisateur
+
+from analytics.activities_last_year a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+INNER JOIN source.users us on a.uid = us._id
+
+where 0=0
+and a.type = 'Running'
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2022-01-01'
+and a.date < '2023-01-01'
+and a.distance > 0
+and a.duration > 0
+and us.gender is not Null
+and us.gender != 'DND'
+and us.gender in ('F','M')
+
+GROUP BY utilisateur, semaine, sexe
+order by utilisateur ASC, semaine ASC, sexe ASC)
+
+GROUP BY utilisateur
+ORDER BY utilisateur ASC)
+
+GROUP BY sexe, type_runner
+ORDER BY sexe ASC, type_runner ASC
+
+;
+
+SELECT
+
+count(type_runner) as nombre_runners_par_categorie,
+type_runner,
+categorie_age
+
+from
+
+(SELECT 
+count(distinct(EXTRACT(week from a.date))) as semaine,
+(SUM(duration)/3600)/semaine as duree_totale_semaine,
+a.uid as utilisateur,
+min((CASE 
+       WHEN -DATEDIFF(years, a.date, us.birthday) < 25 THEN 'Catégorie 1 : moins de 25 ans'
+       WHEN -DATEDIFF(years, a.date, us.birthday) < 35 THEN 'Catégorie 2 : entre 25 et 35 ans'
+       WHEN -DATEDIFF(years, a.date, us.birthday) < 45 THEN 'Catégorie 3 : entre 35 et 45 ans'
+       WHEN -DATEDIFF(years, a.date, us.birthday) < 55 THEN 'Catégorie 4 : entre 45 et 55 ans'
+       ELSE 'Catégorie 5 : plus de 55 ans'
+END)) as categorie_age,
+CASE 
+       WHEN duree_totale_semaine >5 THEN 'Catégorie 11 : plus de 5h par semaine'
+       WHEN duree_totale_semaine >4.5 THEN 'Catégorie 10 : entre 4h30 et 5h par semaine'
+       WHEN duree_totale_semaine >4 THEN 'Catégorie 9 : entre 4h et 4h30 par semaine'
+       WHEN duree_totale_semaine >3.5 THEN 'Catégorie 8 : entre 3h30 et 4h par semaine'
+       WHEN duree_totale_semaine >3 THEN 'Catégorie 7 : entre 3h et 3h30 par semaine'
+       WHEN duree_totale_semaine >2.5 THEN 'Catégorie 6 : entre 2h30 et 3h par semaine'
+       WHEN duree_totale_semaine >2 THEN 'Catégorie 5 : entre 2h et 2h30 par semaine'
+       WHEN duree_totale_semaine >1.5 THEN 'Catégorie 4 : entre 1h30 et 2h par semaine'
+       WHEN duree_totale_semaine >1 THEN 'Catégorie 3 : entre 1h et 1h30 par semaine'
+       WHEN duree_totale_semaine >0.5 THEN 'Catégorie 2 : entre 30min et 1h par semaine'
+       ELSE 'Catégorie 1 : moins de 30min par semaine'
+       END as type_runner
+
+from analytics.activities_last_year a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+INNER JOIN source.users us on a.uid = us._id
+
+where 0=0
+and a.type = 'Running'
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2022-01-01'
+and a.date < '2023-01-01'
+and a.duration > 0
+and us.birthday is not Null
+and LEFT(getdate(),4)-LEFT(us.birthday,4) > 18
+
+GROUP BY utilisateur
+order by utilisateur ASC)
+
+GROUP BY categorie_age, type_runner
+ORDER BY type_runner ASC, categorie_age ASC
+
+
+## La répartition des runs par période de la journée, VS 2021 et semaine VS week-end
+
+SELECT COUNT(_id) as nombre_runs, year_month, moment_semaine,type_run
+FROM
+
+(SELECT _id, CAST(LEFT(a.date,7)+'-01' as date) as year_month,
+
+(CASE 
+       WHEN DATEPART(dw,date_timezoned) in ('6','0') THEN 'Week-End'
+       ELSE 'Semaine'
+END) as moment_semaine,
+
+(CASE 
+       WHEN CAST(LEFT(SUBSTRING(a.date_timezoned, 12),2) as int) <= 04 THEN 'Catégorie 5 : sportif nocture (avant 5h)'
+       WHEN CAST(LEFT(SUBSTRING(a.date_timezoned, 12),2) as int) <= 11 THEN 'Catégorie 4 : sportif du matin (entre 5h et midi)'
+       WHEN CAST(LEFT(SUBSTRING(a.date_timezoned, 12),2) as int) <= 14 THEN 'Catégorie 3 : sportif du midi (entre midi et 15h)'
+       WHEN CAST(LEFT(SUBSTRING(a.date_timezoned, 12),2) as int) <= 18 THEN 'Catégorie 2 : sportif de l"après midi (entre 15h et 19h)'
+       ELSE 'Catégorie 1 : sportif du soir (après 19h)'
+END) as type_run
+
+
+from analytics.activities_last_year a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+
+where 0=0
+and a.type = 'Running'
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2022-01-01'
+and a.distance > 0
+and a.duration > 0
+
+GROUP BY _id, year_month, moment_semaine, type_run
+ORDER BY year_month ASC, type_run ASC)
+
+GROUP BY type_run, year_month, moment_semaine
+ORDER BY year_month ASC, type_run ASC, moment_semaine ASC, nombre_runs DESC
+
+;
+
+SELECT COUNT(_id) as nombre_runs, year, type_run
+FROM
+
+(SELECT _id, LEFT(a.date,4) as year,
+
+(CASE 
+       WHEN CAST(LEFT(SUBSTRING(a.date, 12),2) as int) <= 09 and CAST(LEFT(SUBSTRING(a.date, 12),2) as int) >= 5 THEN 'Catégorie 1 : coureur avant les horaires de travail (avant 9h)'
+       WHEN CAST(LEFT(SUBSTRING(a.date, 12),2) as int) <= 12 THEN 'Catégorie 2 : coureur pendant la matinée de travail (entre 9h et midi)'
+       WHEN CAST(LEFT(SUBSTRING(a.date, 12),2) as int) <= 14 THEN 'Catégorie 3 : coureur pendant la pause déjeuner (entre midi et 14h)'
+       WHEN CAST(LEFT(SUBSTRING(a.date, 12),2) as int) <= 18 THEN 'Catégorie 4 : coureur pendant laprès-midi de travail (entre 14h et 18h)'
+       WHEN CAST(LEFT(SUBSTRING(a.date, 12),2) as int) <= 21 THEN 'Catégorie 5 : coureur après la journée de travail (entre 18h et 21h)'
+END) as type_run
+
+from
+(select DATEADD(HOUR,CAST(timezone AS int) ,date) as date_timezoned, *
+from source.activities a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+
+where 0=0
+and a.type = 'Running'
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2021-01-01'
+and a.date < '2023-01-01'
+and a.distance > 0
+and a.duration > 0
+and DATEPART(dw,date) not in ('6','0'))
+
+GROUP BY _id, year, type_run
+ORDER BY year ASC, type_run ASC)
+
+where type_run is not Null
+
+GROUP BY type_run, year
+ORDER BY year ASC, type_run ASC, nombre_runs DESC
+
+
+
+;
+
+WITH activities AS (
+Select
+DATEADD(HOUR,CAST(timezone AS int) ,date) as date_timezoned,
+*
+
+FROM source.activities
+)
+
+
+SELECT COUNT(_id) as nombre_runs, year, type_run
+FROM
+
+(SELECT _id, LEFT(a.date,4) as year,
+
+(CASE 
+       WHEN CAST(LEFT(SUBSTRING(date_timezoned, 12),2) as int) < 09 and CAST(LEFT(SUBSTRING(date_timezoned, 12),2) as int) >= 5 THEN 'Catégorie 1 : coureur avant les horaires de travail (avant 9h)'
+       WHEN CAST(LEFT(SUBSTRING(date_timezoned, 12),2) as int) < 12 THEN 'Catégorie 2 : coureur pendant la matinée de travail (entre 9h et midi)'
+       WHEN CAST(LEFT(SUBSTRING(date_timezoned, 12),2) as int) < 14 THEN 'Catégorie 3 : coureur pendant la pause déjeuner (entre midi et 14h)'
+       WHEN CAST(LEFT(SUBSTRING(date_timezoned, 12),2) as int) < 18 THEN 'Catégorie 4 : coureur pendant laprès-midi de travail (entre 14h et 18h)'
+       WHEN CAST(LEFT(SUBSTRING(date_timezoned, 12),2) as int) < 21 THEN 'Catégorie 5 : coureur après la journée de travail (entre 18h et 21h)'
+       WHEN CAST(LEFT(SUBSTRING(date_timezoned, 12),2) as int) < 24 THEN 'Catégorie 6 : coureur après le dîner (après) 21h)'
+END) as type_run
+
+
+from activities a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+
+where 0=0
+and a.type = 'Running'
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2019-01-01'
+and a.date < '2023-01-01'
+and a.distance > 0
+and a.duration > 0
+and DATEPART(dw,date) not in ('6','0')
+
+GROUP BY _id, year, type_run
+ORDER BY year ASC, type_run ASC)
+
+where type_run is not Null
+
+GROUP BY type_run, year
+ORDER BY year ASC, type_run ASC, nombre_runs DESC
+
+
+## la régularité des runners en 2022, d'abord pour tous les users puis en séparant hommes et femmes. On calcule sur toute l'année 2022, il faut donc exclure les users s'étant inscrit à partir de février 2022
+
+SELECT 
+months_running,
+COUNT(DISTINCT user_id) as number_users 
+
+FROM
+(SELECT 
+
+a.uid as user_id, 
+COUNT(DISTINCT CASE WHEN type='Running' THEN LEFT(a.date, 7) END) as months_running
+
+from analytics.activities_last_year a
+
+INNER JOIN (
+            SELECT 
+                DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false
+
+            ) u ON a."uid"=u.user_id
+
+INNER JOIN source.users us on a.uid = us._id
+
+where 0=0
+and a.type in ('Running')
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2022-01-01'
+and a.date < '2023-01-01'
+and us.created_at <= '2022-01-31'
+
+group by uid
+
+)
+GROUP BY months_running
+ORDER BY months_running
+
+;
+
+SELECT 
+months_running,
+COUNT(DISTINCT user_id) as number_users,
+sexe
+
+FROM
+(SELECT 
+
+a.uid as user_id, 
+COUNT(DISTINCT CASE WHEN type='Running' THEN LEFT(a.date, 7) END) as months_running,
+min(us.gender) as sexe
+
+from analytics.activities_last_year a
+
+INNER JOIN (
+            SELECT 
+                DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false
+
+            ) u ON a."uid"=u.user_id
+
+INNER JOIN source.users us on a.uid = us._id
+
+where 0=0
+and a.type in ('Running')
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2022-01-01'
+and a.date < '2023-01-01'
+and us.created_at <= '2022-01-31'
+and us.gender is not Null
+and us.gender != 'DND'
+and us.gender in ('F','M')
+
+group by uid
+
+)
+GROUP BY months_running, sexe
+ORDER BY months_running ASC, sexe ASC
+
+
+## Pour la canicule du 15/06 au 19/06 et celle du 12/07 au 25/07, on calcule le pourcentage de runners actifs, le nombre de runs par user actif, la durée moyenne par run, la vitesse moyenne par run et la distance moyenne par run
+
+--Pourcentage runners actifs : canicule de juin
+select ROUND((cast(count (distinct CASE when a.type = 'Running' and a.date >= '2022-06-15' and a.date <= '2022-06-19' then a._id END) as float)/cast(count (distinct CASE when a.type = 'Walking' and a.date >= '2022-06-15' and a.date <= '2022-06-19' then a._id END) as float))*100,1) as pourcentage_runners_actifs
+
+from source.activities a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+
+where 0=0
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2022-06-01'
+and a.date <= '2022-06-30'
+
+;
+
+--Pourcentage runners actifs : canicule de juin - 1 mois
+select ROUND((cast(count (distinct CASE when a.type = 'Running' and a.date >= '2022-05-15' and a.date <= '2022-05-19' then a._id END) as float)/cast(count (distinct CASE when a.type = 'Walking' and a.date >= '2022-05-15' and a.date <= '2022-05-19' then a._id END) as float))*100,1) as pourcentage_runners_actifs
+
+from source.activities a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+
+where 0=0
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2022-05-01'
+and a.date <= '2022-05-30'
+
+;
+
+--Les stats de course pendant canicule de juin
+SELECT 
+round(cast(COUNT(_id) as float)/cast(COUNT(DISTINCT uid) as float),2) as nombre_runs_par_users,
+ROUND(SUM(duration/60)/COUNT(duration),2) as duree_moyenne_par_run,
+ROUND(SUM(distance/1000)/COUNT(_id),2) as distance_moyenne_par_run
+
+from source.activities a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+
+where 0=0
+and a.type = 'Running'
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2022-06-19'
+and a.date <= '2022-06-25'
+and a.distance > 0
+and a.duration > 0
+
+;
+
+--Les stats de course pendant canicule de juin - 1 mois
+SELECT 
+round(cast(COUNT(_id) as float)/cast(COUNT(DISTINCT uid) as float),2) as nombre_runs_par_users,
+ROUND(SUM(duration/60)/COUNT(duration),2) as duree_moyenne_par_run,
+ROUND(SUM(distance/1000)/COUNT(_id),2) as distance_moyenne_par_run
+
+from source.activities a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+
+where 0=0
+and a.type = 'Running'
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2022-05-19'
+and a.date <= '2022-05-25'
+and a.distance > 0
+and a.duration > 0
+
+
+
+
+;
+
+
+
+
+--Pourcentage runners actifs : canicule de juillet
+select ROUND((cast(count (distinct CASE when a.type = 'Running' and a.date >= '2022-07-12' and a.date <= '2022-07-25' then a._id END) as float)/cast(count (distinct CASE when a.type = 'Walking' and a.date >= '2022-07-12' and a.date <= '2022-07-25' then a._id END) as float))*100,1) as pourcentage_runners_actifs
+
+from source.activities a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+
+where 0=0
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2022-07-12'
+and a.date <= '2022-07-25'
+
+;
+
+--Pourcentage runners actifs : canicule de juillet + 1 mois
+select ROUND((cast(count (distinct CASE when a.type = 'Running' and a.date >= '2022-08-12' and a.date <= '2022-08-25' then a._id END) as float)/cast(count (distinct CASE when a.type = 'Walking' and a.date >= '2022-08-12' and a.date <= '2022-08-25' then a._id END) as float))*100,1) as pourcentage_runners_actifs
+
+from source.activities a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+
+where 0=0
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2022-08-12'
+and a.date <= '2022-08-25'
+
+;
+
+--Les stats de course pendant canicule de juillet
+SELECT 
+round(cast(COUNT(_id) as float)/cast(COUNT(DISTINCT uid) as float),2) as nombre_runs_par_users,
+ROUND(SUM(duration/60)/COUNT(duration),2) as duree_moyenne_par_run,
+ROUND(SUM(distance/1000)/COUNT(_id),2) as distance_moyenne_par_run
+
+from source.activities a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+
+where 0=0
+and a.type = 'Running'
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2022-07-12'
+and a.date <= '2022-07-25'
+and a.distance > 0
+and a.duration > 0
+
+;
+
+--Les stats de course pendant canicule de juillet + 1 mois
+SELECT 
+round(cast(COUNT(_id) as float)/cast(COUNT(DISTINCT uid) as float),2) as nombre_runs_par_users,
+ROUND(SUM(duration/60)/COUNT(duration),2) as duree_moyenne_par_run,
+ROUND(SUM(distance/1000)/COUNT(_id),2) as distance_moyenne_par_run
+
+from source.activities a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+
+where 0=0
+and a.type = 'Running'
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2022-08-12'
+and a.date <= '2022-08-25'
+and a.distance > 0
+and a.duration > 0
+
+
+## Dénivelé : Pour tous les users ayant fait au moins une activités sur 2022 : On veut voir la somme totale de dénivelé et la somme totale de distance parcourue. On calcule le pourcentage de dénivelé pour pour classer les users dans chaque catégorie. <0,8 => route, >0,8<1,4 => coureur polyvalent, >1,4<2 => traileur saisonnier, >1,4<2 => traileur intense
+
+SELECT COUNT(uid) as nombre_users, type_runner
+FROM
+
+(SELECT uid, CASE 
+       WHEN (SUM(a.climb)/SUM(a.distance))*100>2 THEN 'Catégorie 4 : trailer intense'
+       WHEN (SUM(a.climb)/SUM(a.distance))*100>1.4 THEN 'Catégorie 3 : trailer saisonnier'
+       WHEN (SUM(a.climb)/SUM(a.distance))*100>0.8 THEN 'Catégorie 2 : coureur polyvalent'
+       ELSE 'Catégorie 1 : coureur de route'
+END as type_runner
+
+
+from analytics.activities_last_year a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+
+where 0=0
+and a.type = 'Running'
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2022-01-01'
+and a.date < '2023-01-01'
+and a.climb > 0
+
+GROUP BY uid
+having SUM(climb)/SUM(distance)<0.5
+order by uid ASC)
+
+GROUP BY type_runner
+ORDER BY type_runner ASC
+
+
+;
+
+
+SELECT COUNT(uid) as nombre_users, type_runner, sexe
+FROM
+
+(SELECT uid, CASE 
+       WHEN (SUM(a.climb)/SUM(a.distance))*100>2 THEN 'Catégorie 4 : trailer intense'
+       WHEN (SUM(a.climb)/SUM(a.distance))*100>1.4 THEN 'Catégorie 3 : trailer saisonnier'
+       WHEN (SUM(a.climb)/SUM(a.distance))*100>0.8 THEN 'Catégorie 2 : coureur polyvalent'
+       ELSE 'Catégorie 1 : coureur de route'
+END as type_runner,
+us.gender as sexe
+
+
+from analytics.activities_last_year a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+INNER JOIN source.users us on a.uid = us._id
+
+where 0=0
+and a.type = 'Running'
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2022-01-01'
+and a.date < '2023-01-01'
+and a.climb > 0
+and us.gender is not Null
+and us.gender != 'DND'
+and us.gender in ('F','M')
+
+GROUP BY uid, sexe
+having SUM(climb)/SUM(distance)<0.5
+order by uid ASC)
+
+GROUP BY type_runner, sexe
+ORDER BY type_runner ASC, sexe ASC
+
+;
+
+SELECT COUNT(uid) as nombre_users, type_runner, year
+FROM
+
+(SELECT CASE 
+       WHEN (a.climb/a.distance)*100>2 and climb/distance<0.5 THEN 'Catégorie 4 : trail intense'
+       WHEN (a.climb/a.distance)*100>1.4 and climb/distance<0.5 THEN 'Catégorie 3 : trail saisonnier'
+       WHEN (a.climb/a.distance)*100>0.8 and climb/distance<0.5 THEN 'Catégorie 2 : course polyvalente'
+       ELSE 'Catégorie 1 : course sur route'
+END as type_run,
+count(type_run) as runs_par_categorie,
+LEFT(a.date,4) as year
+
+
+from source.activities a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+INNER JOIN source.users us on a.uid = us._id
+
+where 0=0
+and a.type = 'Running'
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2020-01-01'
+and a.date < '2023-01-01'
+and a.climb > 0
+and a.distance > 0
+
+GROUP BY year, type_run
+order by type_run ASC, year ASC)
+
+GROUP BY type_runner, year
+ORDER BY type_runner ASC, year ASC
+
+
+## Pourcentage des runners (au global) ayant pratiqué 1/2/3 activités de catégorie 3 ou 4 en 2020, 2021 et 2022
+
+-- On calcule déjà le nombre de runners en 2022. cette première requête nous donne 114 658 runners distincts.
+-- On calcule ensuite le nombre de runners en 2021. cette deuxième requête nous donne 128 175 runners distincts.
+-- Enfin on calcule le nombre de runners en 2020. cette dernière requête nous donne 150 052 runners distincts.
+
+select count(distinct uid) as nombre_runners_2022
+
+from source.activities a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+
+where 0=0
+and a.type = 'Running'
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2022-01-01'
+and a.date < '2023-01-01'
+
+;
+
+select count(distinct uid) as nombre_runners_2021
+
+from source.activities a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+
+where 0=0
+and a.type = 'Running'
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2021-01-01'
+and a.date < '2022-01-01'
+
+;
+
+select count(distinct uid) as nombre_runners_2020
+
+from source.activities a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+
+where 0=0
+and a.type = 'Running'
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2020-01-01'
+and a.date < '2021-01-01'
+
+;
+
+--2022
+select count(uid) as nombre_users,
+cast(nombre_users as float)/cast(114658 as float)*100 as pourcentage_users
+
+from
+
+(select uid,
+COUNT(CASE WHEN type_runner ='Catégorie 3 ou 4: trailer saisonnier/intense' THEN 1 END) as nombre_run_cat_3_4
+
+from
+
+(SELECT uid,
+a._id as act,
+CASE 
+       WHEN (a.climb)/(a.distance)*100>1.4 THEN 'Catégorie 3 ou 4: trailer saisonnier/intense'
+       ELSE 'Catégorie 1 ou 2 : coureur de route/polyvalent'
+END as type_runner
+
+from source.activities a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+
+where 0=0
+and a.type = 'Running'
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2022-01-01'
+and a.date < '2023-01-01'
+and a.climb > 0
+and a.distance > 0
+
+order by uid ASC)
+
+group by uid
+order by uid asc)
+
+where nombre_run_cat_3_4 >=3
+
+;
+
+--2021
+select count(uid) as nombre_users,
+cast(nombre_users as float)/cast(128175 as float)*100 as pourcentage_users
+
+from
+
+(select uid,
+COUNT(CASE WHEN type_runner ='Catégorie 3 ou 4: trailer saisonnier/intense' THEN 1 END) as nombre_run_cat_3_4
+
+from
+
+(SELECT uid,
+a._id as act,
+CASE 
+       WHEN (a.climb)/(a.distance)*100>1.4 THEN 'Catégorie 3 ou 4: trailer saisonnier/intense'
+       ELSE 'Catégorie 1 ou 2 : coureur de route/polyvalent'
+END as type_runner
+
+from source.activities a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+
+where 0=0
+and a.type = 'Running'
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2021-01-01'
+and a.date < '2022-01-01'
+and a.climb > 0
+and a.distance > 0
+
+order by uid ASC)
+
+group by uid
+order by uid asc)
+
+where nombre_run_cat_3_4 >=3
+
+;
+
+--2020
+select count(uid) as nombre_users,
+cast(nombre_users as float)/cast(150052 as float)*100 as pourcentage_users
+
+from
+
+(select uid,
+COUNT(CASE WHEN type_runner ='Catégorie 3 ou 4: trailer saisonnier/intense' THEN 1 END) as nombre_run_cat_3_4
+
+from
+
+(SELECT uid,
+a._id as act,
+CASE 
+       WHEN (a.climb)/(a.distance)*100>1.4 THEN 'Catégorie 3 ou 4: trailer saisonnier/intense'
+       ELSE 'Catégorie 1 ou 2 : coureur de route/polyvalent'
+END as type_runner
+
+from source.activities a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+
+where 0=0
+and a.type = 'Running'
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2020-01-01'
+and a.date < '2021-01-01'
+and a.climb > 0
+and a.distance > 0
+
+order by uid ASC)
+
+group by uid
+order by uid asc)
+
+where nombre_run_cat_3_4 >=3
+
+
+## répartition des users par vitesse moyenne en min/km // + selon age // + selon sexe
+
+SELECT CASE 
+       WHEN vitesse_user >7 THEN 'Catégorie 6 : plus de 7min/km'
+       WHEN vitesse_user >6.5 THEN 'Catégorie 5 : entre 6min30/km et 7min/km'
+       WHEN vitesse_user >6 THEN 'Catégorie 4 : entre 6min/km et 6min30/km'
+       WHEN vitesse_user >5.5 THEN 'Catégorie 3 : entre 5min30/km et 6min/km'
+       WHEN vitesse_user >5 THEN 'Catégorie 2 : entre 5min/km et 5min30/km'
+       ELSE 'Catégorie 1 : moins de 5min/km'
+       END as type_runner,
+       COUNT(type_runner) as nombre_runners_par_categorie, sexe, categorie_age
+
+FROM
+
+(SELECT (SUM(duration)/60)/(SUM(distance)/1000) as vitesse_user, a.uid as utilisateur, MIN(us.gender) as sexe, (CASE 
+       WHEN -DATEDIFF(years, a.date, us.birthday) < 25 THEN 'Catégorie 1 : moins de 25 ans'
+       WHEN -DATEDIFF(years, a.date, us.birthday) < 35 THEN 'Catégorie 2 : entre 25 et 35 ans'
+       WHEN -DATEDIFF(years, a.date, us.birthday) < 45 THEN 'Catégorie 3 : entre 35 et 45 ans'
+       WHEN -DATEDIFF(years, a.date, us.birthday) < 55 THEN 'Catégorie 4 : entre 45 et 55 ans'
+       ELSE 'Catégorie 5 : plus de 55 ans'
+END) as categorie_age
+
+from analytics.activities_last_year a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+INNER JOIN source.users us on a.uid = us._id
+
+where 0=0
+and a.type = 'Running'
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2022-01-01'
+and a.date < '2023-01-01'
+and a.distance > 0
+and a.duration > 0
+and us.gender is not Null
+and us.gender != 'DND'
+and us.gender in ('F','M')
+and us.birthday is not Null
+and LEFT(getdate(),4)-LEFT(us.birthday,4) > 18
+
+GROUP BY utilisateur, categorie_age
+order by utilisateur ASC)
+
+GROUP BY type_runner, sexe, categorie_age
+ORDER BY type_runner ASC, sexe ASC, categorie_age ASC
+
+
+
+
+;
+
+SELECT CASE 
+       WHEN vitesse_user >7 THEN 'Catégorie 6 : plus de 7min/km'
+       WHEN vitesse_user >6.5 THEN 'Catégorie 5 : entre 6min30/km et 7min/km'
+       WHEN vitesse_user >6 THEN 'Catégorie 4 : entre 6min/km et 6min30/km'
+       WHEN vitesse_user >5.5 THEN 'Catégorie 3 : entre 5min30/km et 6min/km'
+       WHEN vitesse_user >5 THEN 'Catégorie 2 : entre 5min/km et 5min30/km'
+       ELSE 'Catégorie 1 : moins de 5min/km'
+       END as type_runner,
+       COUNT(type_runner) as nombre_runners_par_categorie, sexe
+
+from
+
+(SELECT (SUM(duration)/60)/(SUM(distance)/1000) as vitesse_user, min(us.gender) as sexe, a.uid as utilisateur
+
+from analytics.activities_last_year a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+INNER JOIN source.users us on a.uid = us._id
+
+where 0=0
+and a.type = 'Running'
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2022-01-01'
+and a.date < '2023-01-01'
+and a.distance > 0
+and a.duration > 0
+and us.gender is not Null
+and us.gender != 'DND'
+and us.gender in ('F','M')
+and us.birthday is not Null
+and LEFT(getdate(),4)-LEFT(us.birthday,4) > 18
+
+GROUP BY utilisateur
+order by utilisateur ASC)
+
+GROUP BY type_runner, sexe
+ORDER BY type_runner ASC, sexe ASC
+
+
+
+;
+
+
+
+SELECT CASE 
+       WHEN vitesse_user >7 THEN 'Catégorie 6 : plus de 7min/km'
+       WHEN vitesse_user >6.5 THEN 'Catégorie 5 : entre 6min30/km et 7min/km'
+       WHEN vitesse_user >6 THEN 'Catégorie 4 : entre 6min/km et 6min30/km'
+       WHEN vitesse_user >5.5 THEN 'Catégorie 3 : entre 5min30/km et 6min/km'
+       WHEN vitesse_user >5 THEN 'Catégorie 2 : entre 5min/km et 5min30/km'
+       ELSE 'Catégorie 1 : moins de 5min/km'
+       END as type_runner,
+       COUNT(type_runner) as nombre_runners_par_categorie, categorie_age
+
+from
+
+(SELECT (SUM(duration)/60)/(SUM(distance)/1000) as vitesse_user, a.uid as utilisateur, (CASE 
+       WHEN -DATEDIFF(years, a.date, us.birthday) < 25 THEN 'Catégorie 1 : moins de 25 ans'
+       WHEN -DATEDIFF(years, a.date, us.birthday) < 35 THEN 'Catégorie 2 : entre 25 et 35 ans'
+       WHEN -DATEDIFF(years, a.date, us.birthday) < 45 THEN 'Catégorie 3 : entre 35 et 45 ans'
+       WHEN -DATEDIFF(years, a.date, us.birthday) < 55 THEN 'Catégorie 4 : entre 45 et 55 ans'
+       ELSE 'Catégorie 5 : plus de 55 ans'
+END) as categorie_age
+
+from analytics.activities_last_year a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+INNER JOIN source.users us on a.uid = us._id
+
+where 0=0
+and a.type = 'Running'
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2022-01-01'
+and a.date < '2023-01-01'
+and a.distance > 0
+and a.duration > 0
+and us.birthday is not Null
+and LEFT(getdate(),4)-LEFT(us.birthday,4) > 18
+
+GROUP BY utilisateur, categorie_age
+order by utilisateur ASC)
+
+GROUP BY type_runner, categorie_age
+ORDER BY type_runner ASC, categorie_age ASC
+
+;
+
+SELECT CASE 
+       WHEN vitesse_user >7 THEN 'Catégorie 6 : plus de 7min/km'
+       WHEN vitesse_user >6.5 THEN 'Catégorie 5 : entre 6min30/km et 7min/km'
+       WHEN vitesse_user >6 THEN 'Catégorie 4 : entre 6min/km et 6min30/km'
+       WHEN vitesse_user >5.5 THEN 'Catégorie 3 : entre 5min30/km et 6min/km'
+       WHEN vitesse_user >5 THEN 'Catégorie 2 : entre 5min/km et 5min30/km'
+       ELSE 'Catégorie 1 : moins de 5min/km'
+       END as type_runner,
+       COUNT(type_runner) as nombre_runners_par_categorie
+
+from
+
+(SELECT (SUM(duration)/60)/(SUM(distance)/1000) as vitesse_user, a.uid as utilisateur
+
+from analytics.activities_last_year a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+INNER JOIN source.users us on a.uid = us._id
+
+where 0=0
+and a.type = 'Running'
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2022-01-01'
+and a.date < '2023-01-01'
+and a.distance > 0
+and a.duration > 0
+
+GROUP BY utilisateur
+order by utilisateur ASC)
+
+GROUP BY type_runner
+ORDER BY type_runner ASC
+
+
+## Nombre moyen d'activités distinctes pratiquées par runner
+
+select ROUND(CAST(sum(nombre_activites_distinctes) as float)/CAST(count(userr) as float),1) as nombre_activites_distinctes_par_user
+
+from
+
+(select a.uid as userr, count(distinct a.type) as nombre_activites_distinctes
+
+from analytics.activities_last_year a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+INNER JOIN source.users us on a.uid = us._id
+
+where 0=0
+and a.type != 'Walking'
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2022-01-01'
+and a.date < '2023-01-01'
+
+group by userr
+order by userr ASC)
+
+
+## Différentes stats par appli de tracking
+
+SELECT a.provider, COUNT(a.distance)/COUNT(DISTINCT a.uid) as nombre_activités_moyen, (SUM(a.duration)/(COUNT(a.duration)*60)) as temps_moyen, SUM(LEFT(getdate(),4)-LEFT(us.birthday,4))/COUNT(us.birthday) as age_moyen
+
+FROM analytics.activities_last_year a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+
+INNER JOIN source.users us on a."uid" = us._id
+
+WHERE a.type = 'Running'
+and a.deleted = 'false'
+and a.is_valid = 'true'
+and us.gender is not Null
+and us.birthday is not Null
+and LEFT(getdate(),4)-LEFT(us.birthday,4) > 18
+
+GROUP BY a.provider
+order by a.provider ASC
+
+
+;
+
+
+SELECT a.provider,
+(SUM(a.distance)/(COUNT(a.distance)*1000)) as distance_moyenne,
+(SUM(a.duration)/(COUNT(a.duration)*60)) as temps_moyen,
+SUM(a.climb)/COUNT(a.climb) as dénivelé_moyen,
+COUNT(a.distance)/COUNT(DISTINCT a.uid) as nombre_activités_moyen,
+COUNT(CASE WHEN us.gender='F' THEN 1 END)*100/COUNT(us.gender) as pourcentage_femmes,
+COUNT(CASE WHEN us.gender='M' THEN 1 END)*100/COUNT(us.gender) as pourcentage_hommes,
+COUNT(CASE WHEN us.gender='NB' THEN 1 END)*100/COUNT(us.gender) as pourcentage_non_binaires,
+SUM(LEFT(getdate(),4)-LEFT(us.birthday,4))/COUNT(us.birthday) as age_moyen
+
+FROM analytics.activities_last_year a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+
+INNER JOIN source.users us on a."uid" = us._id
+
+WHERE a.type = 'Running'
+and a.deleted = 'false'
+and a.is_valid = 'true'
+and us.gender is not Null
+and us.birthday is not Null
+and LEFT(getdate(),4)-LEFT(us.birthday,4) > 18
+and a.provider not in ('imports')
+
+GROUP BY a.provider
+
+
+## Répartition des sexes pour applis de tracking
+
+SELECT a.provider,
+CAST(COUNT(CASE WHEN us.gender='F' THEN 1 END)*100 as float)/CAST(COUNT(us.gender) as float) as pourcentage_femmes,
+CAST(COUNT(CASE WHEN us.gender='M' THEN 1 END)*100 as float)/CAST(COUNT(us.gender) as float) as pourcentage_hommes,
+CAST(COUNT(CASE WHEN us.gender='NB' THEN 1 END)*100 as float)/CAST(COUNT(us.gender) as float) as pourcentage_non_binaires
+
+FROM analytics.activities_last_year a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+
+INNER JOIN source.users us on a."uid" = us._id
+
+WHERE a.type = 'Running'
+and a.deleted = 'false'
+and a.is_valid = 'true'
+and a.date >= '2022-01-01'
+and a.date < '2023-01-01'
+and us.gender is not Null
+and us.birthday is not Null
+and us.gender not in ('DND')
+
+GROUP BY a.provider
+order by a.provider ASC
+
+
+## Repartition des profils de dénivelé, par appli de tracking
+
+SELECT COUNT(type_run) as nombre_runs, type_run, provider
+FROM
+
+(SELECT CASE 
+       WHEN (a.climb)/(a.distance)*100>2 THEN 'Catégorie 4 : trail intense'
+       WHEN (a.climb)/(a.distance)*100>1.4 THEN 'Catégorie 3 : trail medium'
+       WHEN (a.climb)/(a.distance)*100>0.8 THEN 'Catégorie 2 : course polyvalente'
+       ELSE 'Catégorie 1 : course sur route'
+END as type_run,
+a.provider as provider
+
+
+from analytics.activities_last_year a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+
+where 0=0
+and a.type = 'Running'
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2022-01-01'
+and a.date < '2023-01-01'
+and a.climb > 0
+and a.distance >0
+order by provider ASC)
+
+GROUP BY provider, type_run
+having nombre_runs > 10
+ORDER BY provider ASC, type_run ASC
+
+
+## Distance de run par appli de tracking
+
+SELECT CASE 
+       WHEN distance/1000>20 THEN 'Catégorie 5 : plus de 20km'
+       WHEN distance/1000>15 THEN 'Catégorie 4 : entre 15 et 20km'
+       WHEN distance/1000>10 THEN 'Catégorie 3 : entre 10 et 15km'
+       WHEN distance/1000>5 THEN 'Catégorie 2 : entre 5 et 10km'
+       ELSE 'Catégorie 1 : moins de 5km'
+END as type_run, COUNT(type_run) as nombre_runs,
+a.provider as provider
+
+
+from analytics.activities_last_year a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+INNER JOIN source.users us on a.uid = us._id
+
+where 0=0
+and a.type = 'Running'
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2022-01-01'
+and a.date < '2023-01-01'
+and a.distance > 0
+and a.duration > 0
+
+GROUP BY provider, type_run
+having nombre_runs >10
+order by provider ASC, type_run ASC
+
+
+## Vitesse de run par appli de tracking
+
+SELECT CASE 
+       WHEN (duration/60)/(distance/1000) > 5.5 THEN 'Catégorie 4 : plus de 5min30/km'
+       WHEN (duration/60)/(distance/1000) > 5 THEN 'Catégorie 3 : entre 5min/km et 5min30/km'
+       WHEN (duration/60)/(distance/1000) > 4.5 THEN 'Catégorie 2 : entre 4min30/km et 5min/km'
+       ELSE 'Catégorie 1 : moins de 4min30/km'
+END as type_run, COUNT(type_run) as nombre_runs,
+a.provider as provider
+
+
+from analytics.activities_last_year a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+INNER JOIN source.users us on a.uid = us._id
+
+where 0=0
+and a.type = 'Running'
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2022-01-01'
+and a.date < '2023-01-01'
+and a.distance > 0
+and a.duration > 0
+
+GROUP BY provider, type_run
+having nombre_runs > 10
+order by provider ASC, type_run ASC
+
+
+## nombre de sorties moyen par semaine // + selon age // + selon sexe
+
+SELECT ROUND(cast(SUM(nombre_runs_par_user_par_semaine) as float)/cast(COUNT(utilisateur) as float), 1) as nombre_runs_semaine,
+sexe
+
+FROM
+
+(SELECT
+ROUND(CAST(SUM(nombre_runs_par_user) as float)/CAST(COUNT(semaine) as float),1) as nombre_runs_par_user_par_semaine,
+utilisateur, sexe
+
+from
+
+(SELECT
+COUNT(a._id) as nombre_runs_par_user,
+EXTRACT(week from a.date) as semaine,
+us.gender as sexe,
+a.uid as utilisateur
+
+from analytics.activities_last_year a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+INNER JOIN source.users us on a.uid = us._id
+
+where 0=0
+and a.type = 'Running'
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2022-01-01'
+and a.date < '2023-01-01'
+and a.distance > 0
+and a.duration > 0
+and us.gender is not Null
+and us.gender != 'DND'
+and us.gender in ('F','M')
+
+GROUP BY utilisateur, sexe, semaine
+order by utilisateur ASC, sexe ASC, semaine ASC)
+
+GROUP BY utilisateur, sexe
+ORDER BY utilisateur ASC, sexe ASC)
+
+group by sexe
+order by sexe ASC
+
+
+
+;
+
+
+SELECT ROUND(cast(SUM(nombre_runs_par_user_par_semaine) as float)/cast(COUNT(utilisateur) as float), 1) as nombre_runs_semaine,
+categorie_age
+
+FROM
+
+(SELECT ROUND(CAST(SUM(nombre_runs_par_user) as float)/CAST(COUNT(semaine) as float),1) as nombre_runs_par_user_par_semaine,
+utilisateur,
+categorie_age
+
+from
+
+(SELECT COUNT(a._id) as nombre_runs_par_user,
+EXTRACT(week from a.date) as semaine,
+a.uid as utilisateur,
+(CASE 
+       WHEN -DATEDIFF(years, a.date, us.birthday) < 25 THEN 'Catégorie 1 : moins de 25 ans'
+       WHEN -DATEDIFF(years, a.date, us.birthday) < 35 THEN 'Catégorie 2 : entre 25 et 35 ans'
+       WHEN -DATEDIFF(years, a.date, us.birthday) < 45 THEN 'Catégorie 3 : entre 35 et 45 ans'
+       WHEN -DATEDIFF(years, a.date, us.birthday) < 55 THEN 'Catégorie 4 : entre 45 et 55 ans'
+       ELSE 'Catégorie 5 : plus de 55 ans'
+END) as categorie_age
+
+from analytics.activities_last_year a
+
+INNER JOIN (
+
+            SELECt DISTINCT user_id
+
+            FROM source.usersclients
+            WHERE 
+            client_id IN ('client_id1')
+            and is_deleted is false)
+u ON a."uid"=u.user_id
+INNER JOIN source.users us on a.uid = us._id
+
+where 0=0
+and a.type = 'Running'
+and a.is_valid = 'true'
+and a.deleted = 'false'
+and a.date >= '2022-01-01'
+and a.date < '2023-01-01'
+and a.distance > 0
+and a.duration > 0
+and us.birthday is not Null
+and LEFT(getdate(),4)-LEFT(us.birthday,4) > 18
+
+GROUP BY utilisateur, semaine, categorie_age
+order by utilisateur ASC, semaine ASC, categorie_age ASC)
+
+GROUP BY utilisateur, categorie_age
+ORDER BY utilisateur ASC, categorie_age ASC)
+
+group by categorie_age
+order by categorie_age ASC
