@@ -1,0 +1,191 @@
+drop table if exists sh_internal_reporting_registered;
+CREATE TEMPORARY TABLE sh_internal_reporting_registered AS
+
+WITH RECURSIVE months(MonthNumber) AS
+(
+    SELECT 0
+    UNION ALL
+    SELECT MonthNumber+1
+    FROM months
+    WHERE MonthNumber < 25
+),
+month_list AS
+(
+    SELECT
+    DATEADD(MONTH,-monthnumber,GETDATE()) AS precise_date,
+    CAST(LEFT(DATEADD(MONTH,-monthnumber,GETDATE()),7) + '-01' AS date) AS first_of_month,
+    LAST_DAY(first_of_month) AS end_of_month,
+    LEFT(DATEADD(MONTH,-monthnumber,GETDATE()),7) AS month,
+    Cast(DATEPART(year,end_of_month) as text) +'-Q'+CAST(EXTRACT(QUARTER FROM end_of_month) as text) as quarter,
+    RANK() OVER (PARTITION BY quarter ORDER BY end_of_month desc) AS month_rank
+    from months
+),
+user_months AS (
+SELECT
+    uc."user_id",
+    uc.client_id,
+    uc."created_at",
+    m.quarter,
+    m.month,
+    m.month_rank,
+    CASE WHEN uc.created_at > m.first_of_month THEN uc.created_at ELSE m.first_of_month END AS start_date,
+    m.end_of_month AS end_date
+FROM source.usersclients uc
+LEFT JOIN month_list m ON uc.created_at <= m.end_of_month
+)
+
+SELECT
+client_id as client_id,
+cast(month+'-01' as date) as month_format,
+COUNT(DISTINCT user_id) as registered
+
+FROM user_months
+WHERE month is not null
+
+GROUP BY client_id, month_format
+ORDER BY client_id, month_format
+;
+
+drop table if exists sh_internal_reporting_activity;
+CREATE TEMPORARY TABLE sh_internal_reporting_activity AS
+
+select 
+    u.client_id,
+    CAST(LEFT(a.date,7)+'-01' as date) as month_format, 
+    COUNT(CASE WHEN a.type != 'Walking' THEN a._id END) as non_walking_activities, 
+    COUNT(a._id) as all_activities, 
+    SUM(a.distance) as distance,
+    SUM(a.points) as points,
+    COUNT(DISTINCT CASE WHEN a.type != 'Walking' THEN a.uid END) as non_walking_active_users, 
+    COUNT(DISTINCT a.uid) as active_users_all_activities
+
+
+from source.activities a 
+INNER JOIN (
+            SELECt DISTINCT user_id, client_id
+            FROM source.usersclients
+            WHERE is_deleted is false)
+u ON a."uid"=u.user_id
+
+where a.date <= getdate() and a.date >= cast(left(DATEADD(MONTH,-25,GETDATE()),7)+'-01' as date) and deleted is false and is_valid is true
+
+group by client_id, month_format
+order by client_id asc, month_format asc
+
+;
+
+WITH RECURSIVE months(MonthNumber) AS
+
+(
+    SELECT 0
+    UNION ALL
+    SELECT MonthNumber+1 
+    FROM months
+    WHERE MonthNumber < 25
+),
+
+month_list AS 
+
+(
+
+    SELECT 
+    DATEADD(MONTH,-monthnumber,GETDATE()) AS precise_date,
+    CAST(LEFT(DATEADD(MONTH,-monthnumber,GETDATE()),7) + '-01' AS date) AS first_of_month,
+    LAST_DAY(first_of_month) AS end_of_month,
+    LEFT(DATEADD(MONTH,-monthnumber,GETDATE()),7) AS month,
+    Cast(DATEPART(year,end_of_month) as text) +'-Q'+CAST(EXTRACT(QUARTER FROM end_of_month) as text) as quarter,
+    
+    RANK() OVER (PARTITION BY quarter ORDER BY end_of_month desc) AS month_rank
+
+
+    from months
+
+),
+month_client_combo AS (
+SELECT 
+    c.client_name,
+    c.client_id,
+    m.first_of_month AS month_format,
+    m.month
+
+
+FROM analytics.client_name_mapping c
+CROSS JOIN month_list m
+
+ORDER BY c.client_name, m.first_of_month
+), 
+mixpanel_data AS (
+
+SELECT
+    customer_id as client_name,
+    CAST(month_format as date) as month_format,
+    SUM(CASE WHEN metric = 'new_users' then CAST(value as int) else 0 END) as new_users,
+    SUM(CASE WHEN metric = 'unique_user' then CAST(value as int) else 0 END) as unique_user,
+    SUM(CASE WHEN metric = 'engaged_user' then CAST(value as int) else 0 END) as engaged_user,
+    SUM(CASE WHEN metric = 'sessions_total' then CAST(value as int) else 0 END) as sessions_total,
+    SUM(CASE WHEN metric = 'challenge_entered_unique' then CAST(value as int) else 0 END) as challenge_entered_unique,
+    SUM(CASE WHEN metric = 'article_total' then CAST(value as int) else 0 END) as article_total,
+    SUM(CASE WHEN metric = 'leaderboard_total' then CAST(value as int) else 0 END) as leaderboard_total,
+    SUM(CASE WHEN metric = 'app_session_unique' then CAST(value as int) else 0 END) as app_session_unique,
+    SUM(CASE WHEN metric = 'interaction_unique' then CAST(value as int) else 0 END) as interaction_unique,
+    SUM(CASE WHEN metric = 'new_users_challenge' then CAST(value as int) else 0 END) as new_users_challenge,
+    SUM(CASE WHEN metric = 'engaging_activities' then CAST(value as int) else 0 END) as engaging_activities,
+    SUM(CASE WHEN metric = 'new_users_attributed_challenge' then CAST(value as int) else 0 END) as new_users_attributed_challenge,
+    SUM(CASE WHEN metric = 'challenge_completed_total' then CAST(value as int) else 0 END) as challenge_completed_total,
+    SUM(CASE WHEN metric = 'active_users_excl_new' then CAST(value as int) else 0 END) as active_users_excl_new,
+    SUM(CASE WHEN metric = 'article_unique' then CAST(value as int) else 0 END) as article_unique,
+    SUM(CASE WHEN metric = 'leaderboard_unique' then CAST(value as int) else 0 END) as leaderboard_unique,
+    SUM(CASE WHEN metric = 'challenge_entered_total' then CAST(value as int) else 0 END) as challenge_entered_total,
+    SUM(CASE WHEN metric = 'app_session_total' then CAST(value as int) else 0 END) as app_session_total,
+    SUM(CASE WHEN metric = 'share_unique' then CAST(value as int) else 0 END) as share_unique,
+    SUM(CASE WHEN metric = 'new_users_tracking_app' then CAST(value as int) else 0 END) as new_users_tracking_app,
+    SUM(CASE WHEN metric = 'new_users_activated' then CAST(value as int) else 0 END) as new_users_activated,
+    SUM(CASE WHEN metric = 'challenge_completed_unique' then CAST(value as int) else 0 END) as challenge_completed_unique,
+    SUM(CASE WHEN metric = 'reward_unique' then CAST(value as int) else 0 END) as reward_unique
+
+FROM source.shclient_mixpanelevents
+
+GROUP BY client_name,month_format
+ORDER BY client_name,month_format
+
+)
+
+
+SELECT 
+mc.*,
+m.new_users,
+m.unique_user, 
+m.engaged_user,    
+m.sessions_total,  
+m.challenge_entered_unique,
+m.article_total, 
+m.leaderboard_total,
+m.app_session_unique,  
+m.interaction_unique, 
+m.new_users_challenge, 
+m.engaging_activities, 
+m.new_users_attributed_challenge,  
+m.challenge_completed_total,   
+m.active_users_excl_new,   
+m.article_unique,
+m.leaderboard_unique,  
+m.challenge_entered_total, 
+m.app_session_total, 
+m.share_unique,    
+m.new_users_tracking_app,  
+m.new_users_activated, 
+m.challenge_completed_unique,  
+m.reward_unique,
+a.non_walking_activities,
+a.all_activities,
+a.distance,
+a.points,
+a.non_walking_active_users,
+a.active_users_all_activities,
+r.registered
+
+
+FROM month_client_combo mc
+LEFT JOIN mixpanel_data m ON mc.client_name = m.client_name AND mc.month_format = m.month_format
+LEFT JOIN sh_internal_reporting_activity a ON mc.client_id = a.client_id AND mc.month_format = a.month_format
+LEFT JOIN sh_internal_reporting_registered r ON mc.client_id = r.client_id and mc.month_format=r.month_format
