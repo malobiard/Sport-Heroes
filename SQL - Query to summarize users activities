@@ -87,10 +87,10 @@ CREATE TEMPORARY TABLE #activites_tot (
 
 INSERT INTO #activites_tot (
     utilisateur,
-    vitesse_running_moyenne,
-    vitesse_cycling_moyenne,
-    vitesse_swimming_moyenne,
-    vitesse_walking_moyenne,
+    vitesse_running_mediane,
+    vitesse_cycling_mediane,
+    vitesse_swimming_mediane,
+    vitesse_walking_mediane,
     duree_yoga_moyenne,
     duree_workout_moyenne
 )
@@ -183,10 +183,10 @@ and a.is_valid = 'True'
 group by utilisateur)
 
 select r.utilisateur,
-max(r.vitesse_running_mediane) as vitesse_running_moyenne,
-max(c.vitesse_cycling_mediane) as vitesse_cycling_moyenne,
-max(s.vitesse_swimming_mediane) as vitesse_swimming_moyenne,
-max(w.vitesse_walking_mediane) as vitesse_walking_moyenne,
+max(r.vitesse_running_mediane) as vitesse_running_mediane,
+max(c.vitesse_cycling_mediane) as vitesse_cycling_mediane,
+max(s.vitesse_swimming_mediane) as vitesse_swimming_mediane,
+max(w.vitesse_walking_mediane) as vitesse_walking_mediane,
 max(y.duree_yoga_moyenne) as duree_yoga_moyenne,
 max(wo.duree_workout_moyenne) as duree_workout_moyenne
 
