@@ -1,0 +1,287 @@
+drop table if exists #activites_hebdo
+
+;
+
+CREATE TEMPORARY TABLE #activites_hebdo (
+    utilisateur VARCHAR(50),
+    distance_moyenne_running_hebdo_last_3months double precision,
+    distance_moyenne_cycling_hebdo_last_3months double precision,
+    distance_moyenne_swimming_hebdo_last_3months double precision,
+    distance_moyenne_walking_hebdo_last_3months double precision,
+    nombre_sessions_yoga_hebdo_last_3months double precision,
+    nombre_sessions_workout_hebdo_last_3months double precision
+)
+
+;
+
+INSERT INTO #activites_hebdo (
+    utilisateur, 
+    distance_moyenne_running_hebdo_last_3months, 
+    distance_moyenne_cycling_hebdo_last_3months, 
+    distance_moyenne_swimming_hebdo_last_3months, 
+    distance_moyenne_walking_hebdo_last_3months, 
+    nombre_sessions_yoga_hebdo_last_3months, 
+    nombre_sessions_workout_hebdo_last_3months
+)
+
+(select
+utilisateur,
+round(avg(CAST(distance_running_moyenne_hebdo as float)),2) as distance_moyenne_running_hebdo_last_3months,
+round(avg(CAST(distance_cycling_moyenne_hebdo as float)),2) as distance_moyenne_cycling_hebdo_last_3months,
+round(avg(CAST(distance_swimming_moyenne_hebdo as float)),2) as distance_moyenne_swimming_hebdo_last_3months,
+round(avg(CAST(distance_walking_moyenne_hebdo as float)),2) as distance_moyenne_walking_hebdo_last_3months,
+round(avg(CAST(nombre_sessions_yoga_hebdo as float)),2) as nombre_sessions_yoga_hebdo_last_3months,
+round(avg(CAST(nombre_sessions_workout_hebdo as float)),2) as nombre_sessions_workout_hebdo_last_3months
+
+
+from
+
+(select
+a.uid as utilisateur,
+extract(week from a.date) as semaine,
+sum(CASE WHEN type='Running' and a .distance > 0 then a.distance end)/1000 as distance_running_moyenne_hebdo,
+sum(CASE WHEN type='Cycling' and a .distance > 0 then a.distance end)/1000 as distance_cycling_moyenne_hebdo,
+sum(CASE WHEN type='Swimming' and a .distance > 0 then a.distance end)/1000 as distance_swimming_moyenne_hebdo,
+sum(CASE WHEN type='Walking' and a .distance > 0 then a.distance end)/1000 as distance_walking_moyenne_hebdo,
+COUNT(CASE WHEN lower(type) IN('pilategym','yoga','stretching','meditation') then a."_id" end) as nombre_sessions_yoga_hebdo,
+COUNT(CASE WHEN lower(type) IN('weighttraining','streetworkout','crossfit','workout','crossfit') then a."_id" end) as nombre_sessions_workout_hebdo
+
+
+from analytics.uh_activities a
+
+where 0=0
+and lower(a.type) IN('running','cycling','walking','swimming','pilategym','yoga','stretching','meditation','weighttraining','streetworkout','crossfit','workout','crossfit')
+and a.date >= getdate() -90
+and a.deleted = 'False'
+and a.is_valid = 'True'
+and semaine != extract(week from getdate())
+and semaine != extract(week from getdate()-90)
+
+group by a.uid, semaine
+)
+
+group by utilisateur
+having count(semaine) >= 3)
+
+;
+
+select * from #activites_hebdo
+
+;
+
+drop table if exists #activites_tot
+
+;
+
+CREATE TEMPORARY TABLE #activites_tot (
+    utilisateur VARCHAR(50),
+    vitesse_running_moyenne double precision,
+    vitesse_cycling_moyenne double precision,
+    vitesse_swimming_moyenne double precision,
+    vitesse_walking_moyenne double precision,
+    duree_yoga_moyenne double precision,
+    duree_workout_moyenne double precision
+)
+
+;
+
+INSERT INTO #activites_tot (
+    utilisateur,
+    vitesse_running_moyenne,
+    vitesse_cycling_moyenne,
+    vitesse_swimming_moyenne,
+    vitesse_walking_moyenne,
+    duree_yoga_moyenne,
+    duree_workout_moyenne
+)
+
+(WITH median_running AS ( 
+SELECT a.uid as utilisateur,
+median(CASE WHEN type='Running' and a.distance > 0 then cast((cast(a.duration as float)/60)/(cast(a.distance as float)/1000) as float) end) as vitesse_running_mediane
+
+  FROM analytics.uh_activities a
+
+where 0=0
+and lower(a.type) IN('running','cycling','walking','swimming','pilategym','yoga','stretching','meditation','weighttraining','streetworkout','crossfit','workout','crossfit')
+and a.date >= getdate() -90
+and a.deleted = 'False'
+and a.is_valid = 'True'
+
+
+group by utilisateur
+order by vitesse_running_mediane asc)
+
+, median_cycling AS ( 
+SELECT a.uid as utilisateur,
+median(CASE WHEN type='Cycling' and a.distance > 0 then cast((cast(a.duration as float)/60)/(cast(a.distance as float)/1000) as float) end) as vitesse_cycling_mediane
+  FROM analytics.uh_activities a
+
+where 0=0
+and lower(a.type) IN('running','cycling','walking','swimming','pilategym','yoga','stretching','meditation','weighttraining','streetworkout','crossfit','workout','crossfit')
+and a.date >= getdate() -90
+and a.deleted = 'False'
+and a.is_valid = 'True'
+
+
+group by utilisateur
+order by vitesse_cycling_mediane asc) 
+  , median_swimming AS ( 
+SELECT a.uid as utilisateur,
+median(CASE WHEN type='Swimming' and a.distance > 0 then cast((cast(a.duration as float)/60)/(cast(a.distance as float)/1000) as float) end) as vitesse_swimming_mediane
+  FROM analytics.uh_activities a
+
+where 0=0
+and lower(a.type) IN('running','cycling','walking','swimming','pilategym','yoga','stretching','meditation','weighttraining','streetworkout','crossfit','workout','crossfit')
+and a.date >= getdate() -90
+and a.deleted = 'False'
+and a.is_valid = 'True'
+
+
+group by utilisateur
+order by vitesse_swimming_mediane asc)
+  , median_walking AS ( 
+SELECT a.uid as utilisateur,
+median(CASE WHEN type='Walking' and a.distance > 0 then cast((cast(a.duration as float)/60)/(cast(a.distance as float)/1000) as float) end) as vitesse_walking_mediane 
+  FROM analytics.uh_activities a
+
+where 0=0
+and lower(a.type) IN('running','cycling','walking','swimming','pilategym','yoga','stretching','meditation','weighttraining','streetworkout','crossfit','workout','crossfit')
+and a.date >= getdate() -90
+and a.deleted = 'False'
+and a.is_valid = 'True'
+
+
+group by utilisateur
+order by vitesse_walking_mediane asc)
+, duree_yoga_moyenne AS ( 
+SELECT a.uid as utilisateur,
+sum(CASE WHEN lower(type) IN('pilategym','yoga','stretching','meditation') then (a.duration/60) end)/count(CASE WHEN lower(type) IN('pilategym','yoga','stretching','meditation') then a._id end) as duree_yoga_moyenne
+  FROM analytics.uh_activities a
+
+where 0=0
+and lower(a.type) IN('running','cycling','walking','swimming','pilategym','yoga','stretching','meditation','weighttraining','streetworkout','crossfit','workout','crossfit')
+and a.date >= getdate() -90
+and a.deleted = 'False'
+and a.is_valid = 'True'
+
+
+group by utilisateur),
+
+duree_workout_moyenne AS ( 
+SELECT a.uid as utilisateur,
+sum(CASE WHEN lower(type) IN('weighttraining','streetworkout','crossfit','workout','crossfit') then (a.duration/60) end)/count(CASE WHEN lower(type) IN('weighttraining','streetworkout','crossfit','workout','crossfit') then a._id end) as duree_workout_moyenne
+
+FROM analytics.uh_activities a
+
+where 0=0
+and lower(a.type) IN('running','cycling','walking','swimming','pilategym','yoga','stretching','meditation','weighttraining','streetworkout','crossfit','workout','crossfit')
+and a.date >= getdate() -90
+and a.deleted = 'False'
+and a.is_valid = 'True'
+
+
+group by utilisateur)
+
+select r.utilisateur,
+max(r.vitesse_running_mediane) as vitesse_running_moyenne,
+max(c.vitesse_cycling_mediane) as vitesse_cycling_moyenne,
+max(s.vitesse_swimming_mediane) as vitesse_swimming_moyenne,
+max(w.vitesse_walking_mediane) as vitesse_walking_moyenne,
+max(y.duree_yoga_moyenne) as duree_yoga_moyenne,
+max(wo.duree_workout_moyenne) as duree_workout_moyenne
+
+from median_running r
+right join median_cycling c on r.utilisateur = c.utilisateur
+right join median_swimming s on r.utilisateur = s.utilisateur
+right join median_walking w on r.utilisateur = w.utilisateur
+right join duree_yoga_moyenne y on r.utilisateur = y.utilisateur
+right join duree_workout_moyenne wo on r.utilisateur = wo.utilisateur
+
+group by r.utilisateur)
+
+;
+
+select * from #activites_tot
+
+;
+
+drop table if exists #activites_mois
+
+;
+
+CREATE TEMPORARY TABLE #activites_mois (
+    utilisateur VARCHAR(50),
+    sorties_running_mois double precision,
+    sorties_cycling_mois double precision,
+    sorties_swimming_mois double precision,
+    sorties_walking_mois double precision
+)
+
+;
+
+INSERT INTO #activites_mois (
+    utilisateur,
+    sorties_running_mois,
+    sorties_cycling_mois,
+    sorties_swimming_mois,
+    sorties_walking_mois
+)
+
+(select
+utilisateur,
+avg(nombre_sessions_running_mois) as sorties_running_mois,
+avg(nombre_sessions_cycling_mois) as sorties_cycling_mois,
+avg(nombre_sessions_swimming_mois) as sorties_swimming_mois,
+avg(nombre_sessions_walking_mois) as sorties_walking_mois
+
+from
+
+(select
+a.uid as utilisateur,
+case when a.date >= getdate() -90 and a.date < getdate() -60 then '3'
+when a.date >= getdate() -60 and a.date < getdate() -30 then '2'
+else '1' end as mois,
+COUNT(CASE WHEN  type='Running' then a."_id" end) as nombre_sessions_running_mois,
+COUNT(CASE WHEN  type='Cycling' then a."_id" end) as nombre_sessions_cycling_mois,
+COUNT(CASE WHEN  type='Swimming' then a."_id" end) as nombre_sessions_swimming_mois,
+COUNT(CASE WHEN  type='Walking' then a."_id" end) as nombre_sessions_walking_mois
+
+from analytics.uh_activities a
+
+where 0=0
+and lower(a.type) IN('running','cycling','walking','swimming','pilategym','yoga','stretching','meditation','weighttraining','streetworkout','crossfit','workout','crossfit')
+and a.date >= getdate() -90
+and a.deleted = 'False'
+and a.is_valid = 'True'
+
+
+group by utilisateur, mois
+order by utilisateur asc, mois asc)
+
+group by utilisateur
+order by utilisateur asc)
+
+;
+
+select * from #activites_mois
+order by utilisateur asc
+
+;
+
+select A.*,
+B.vitesse_running_moyenne,
+B.vitesse_cycling_moyenne,
+B.vitesse_swimming_moyenne,
+B.vitesse_walking_moyenne,
+B.duree_yoga_moyenne,
+B.duree_workout_moyenne,
+C.sorties_running_mois,
+C.sorties_cycling_mois,
+C.sorties_swimming_mois,
+C.sorties_walking_mois
+
+from #activites_hebdo A
+inner join #activites_tot B on A.utilisateur = B.utilisateur
+inner join #activites_mois C on A.utilisateur = C.utilisateur
+
+order by A.utilisateur asc
